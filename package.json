@@ -1,0 +1,23 @@
+{
+  "name": "memory-monitor-app",
+  "version": "1.0.0",
+  "description": "A Node.js application to monitor memory and swap usage on a Linux server and notify when thresholds are exceeded.",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "node-notifier": "^10.0.0",
+    "dotenv": "^10.0.0",
+    "os-utils": "^1.0.0"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "memory",
+    "monitor",
+    "notification",
+    "nodejs"
+  ],
+  "author": "",
+  "license": "ISC"
+}
