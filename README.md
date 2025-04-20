@@ -1,53 +1,60 @@
-# Memory Monitor App
+# Memory and Swap Usage Monitor
 
-This project is a memory and swap monitoring application built with Node.js. It monitors the memory and swap usage on a Linux server and sends notifications when the usage exceeds specified thresholds.
+このプロジェクトは、メモリとスワップの使用状況をリアルタイムで監視し、ブラウザ上でグラフとして表示するアプリケーションです。
 
-## Project Structure
+## 機能
 
-```
-memory-monitor-app
-├── src
-│   ├── app.js          # Entry point of the application
-│   ├── monitor
-│   │   ├── memory.js   # Monitors memory usage
-│   │   └── swap.js     # Monitors swap usage
-│   └── notifier
-│       └── notify.js   # Sends notifications
-├── package.json        # npm configuration file
-├── .env                # Environment variables
-├── .gitignore          # Git ignore file
-└── README.md           # Project documentation
-```
+- メモリとスワップの使用率をリアルタイムで監視
+- 使用率を折れ線グラフで表示
+- メモリとスワップのしきい値を基準線（アノテーション）として表示
+- 現在のメモリとスワップの使用率を画面右上に表示
+- グラフの高さをブラウザに収まるように調整
 
-## Setup Instructions
+## 使用技術
 
-1. **Clone the repository:**
+- **Node.js**: バックエンドの実装
+- **Express**: API サーバーの構築
+- **Chart.js**: グラフの描画
+- **chartjs-plugin-annotation**: グラフに基準線を追加
+- **HTML/CSS/JavaScript**: フロントエンドの実装
+
+## セットアップ
+
+### 必要条件
+
+- Node.js がインストールされていること
+- `free` コマンドが利用可能であること（Linux 環境）
+
+### インストール手順
+
+1. リポジトリをクローンします。
+
    ```bash
-   git clone https://github.com/yourusername/memory-monitor-app.git
+   git clone <リポジトリURL>
    cd memory-monitor-app
    ```
 
-2. **Install dependencies:**
+2. **依存関係をインストールします:**
    ```bash
    npm install
    ```
 
-3. **Configure environment variables:**
-   Create a `.env` file in the root directory and define the necessary variables, such as notification settings and threshold values.
+3. **環境変数を設定します:**
+   ルートディレクトリに `.env` ファイルを作成し、通知設定やしきい値を定義します。
 
-4. **Run the application:**
+4. **アプリケーションを起動します:**
    ```bash
    node src/app.js
    ```
 
-## Usage
+## 使用方法
 
-The application will start monitoring the memory and swap usage. If the usage exceeds the defined thresholds, it will trigger notifications to alert the user.
+アプリケーションを起動すると、メモリとスワップの使用状況がリアルタイムで監視され、ブラウザ上にグラフとして表示されます。しきい値を超えた場合は通知がトリガーされます。
 
-## Contributing
+## 貢献
 
-Feel free to submit issues or pull requests for improvements or bug fixes. 
+改善やバグ修正のための問題やプルリクエストを自由に提出してください。
 
-## License
+## ライセンス
 
-This project is licensed under the MIT License.
+このプロジェクトは MIT ライセンスの下でライセンスされています。
