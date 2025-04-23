@@ -3,138 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Memory and Swap Usage</title>
+    <title>Remote Machine Monitoring</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
-        #current-stats {
-            position: absolute;
-            top: 10px;
-            right: 10px; /* 右上に配置 */
-            background: rgba(255, 255, 255, 0.8);
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
         }
-
-        /* キャンバスの高さをブラウザに収まるように調整 */
-        #usageChart {
-            max-height: 70vh; /* ビューポートの高さの70%に制限 */
-            width: 100%; /* 横幅を100%に設定 */
+        canvas {
+            max-width: 800px;
+            margin: 20px auto;
         }
     </style>
 </head>
 <body>
-    <h1>Memory and Swap Usage</h1>
-    <div id="current-stats">
-        <p><strong>Memory Usage:</strong> <span id="memory-usage">0%</span></p>
-        <p><strong>Swap Usage:</strong> <span id="swap-usage">0%</span></p>
+    <h1>Remote Machine Monitoring</h1>
+    <div>
+        <canvas id="usageChart" width="800" height="400"></canvas>
     </div>
-    <canvas id="usageChart"></canvas>
 
     <script>
-        let usageChart;
+        const ctx = document.getElementById('usageChart').getContext('2d');
 
-        async function fetchHistory() {
+        // グラフの初期化
+        const usageChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [], // 時間ラベル
+                datasets: [
+                    {
+                        label: 'Memory Usage (%)',
+                        data: [],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        fill: true,
+                    },
+                    {
+                        label: 'Swap Usage (%)',
+                        data: [],
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        fill: true,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Memory and Swap Usage (%)',
+                    },
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                    },
+                },
+            },
+        });
+
+        // データ取得と更新
+        async function fetchData() {
             try {
-                const response = await fetch('/api/history');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                const response = await axios.get('/api/machines');
+                const machines = response.data;
+
+                // 現在の時刻をラベルに追加
+                const currentTime = new Date().toLocaleTimeString();
+                if (!usageChart.data.labels.includes(currentTime)) {
+                    usageChart.data.labels.push(currentTime);
                 }
-                const data = await response.json();
 
-                // 現在のメモリとスワップの使用率を表示
-                const latestMemory = data.memory[data.memory.length - 1];
-                const latestSwap = data.swap[data.swap.length - 1];
-                document.getElementById('memory-usage').textContent = `${latestMemory.usagePercent}%`;
-                document.getElementById('swap-usage').textContent = `${latestSwap.usagePercent}%`;
+                // メモリとスワップのデータを更新
+                const memoryData = [];
+                const swapData = [];
+                Object.keys(machines).forEach((hostname) => {
+                    const machine = machines[hostname];
+                    memoryData.push(machine.memoryUsage);
+                    swapData.push(machine.swapUsage);
+                });
 
-                // 時系列データを取得
-                const timestamps = data.memory.map(entry => new Date(entry.timestamp).toLocaleTimeString());
-                const memoryUsage = data.memory.map(entry => parseFloat(entry.usagePercent));
-                const swapUsage = data.swap.map(entry => parseFloat(entry.usagePercent));
+                // グラフのデータセットを更新
+                usageChart.data.datasets[0].data.push(memoryData.reduce((a, b) => a + b, 0) / memoryData.length); // メモリ平均
+                usageChart.data.datasets[1].data.push(swapData.reduce((a, b) => a + b, 0) / swapData.length); // スワップ平均
 
                 // グラフを更新
-                if (usageChart) {
-                    usageChart.data.labels = timestamps;
-                    usageChart.data.datasets[0].data = memoryUsage;
-                    usageChart.data.datasets[1].data = swapUsage;
-
-                    // アノテーションの更新
-                    usageChart.options.plugins.annotation.annotations.memoryThreshold.value = data.thresholds.memory;
-                    usageChart.options.plugins.annotation.annotations.swapThreshold.value = data.thresholds.swap;
-
-                    usageChart.update();
-                } else {
-                    // グラフを初期化
-                    const ctx = document.getElementById('usageChart').getContext('2d');
-                    usageChart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: timestamps,
-                            datasets: [
-                                {
-                                    label: 'Memory Usage (%)',
-                                    data: memoryUsage,
-                                    borderColor: '#FF6384',
-                                    fill: false,
-                                },
-                                {
-                                    label: 'Swap Usage (%)',
-                                    data: swapUsage,
-                                    borderColor: '#36A2EB',
-                                    fill: false,
-                                },
-                            ],
-                        },
-                        options: {
-                            plugins: {
-                                annotation: {
-                                    annotations: {
-                                        memoryThreshold: {
-                                            type: 'line',
-                                            yMin: data.thresholds.memory,
-                                            yMax: data.thresholds.memory,
-                                            borderColor: '#FF0000',
-                                            borderDash: [5, 5],
-                                            borderWidth: 2,
-                                            label: {
-                                                content: 'Memory Threshold',
-                                                enabled: true,
-                                                position: 'end',
-                                            },
-                                        },
-                                        swapThreshold: {
-                                            type: 'line',
-                                            yMin: data.thresholds.swap,
-                                            yMax: data.thresholds.swap,
-                                            borderColor: '#FF0000',
-                                            borderDash: [5, 5],
-                                            borderWidth: 2,
-                                            label: {
-                                                content: 'Swap Threshold',
-                                                enabled: true,
-                                                position: 'end',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            scales: {
-                                x: { title: { display: true, text: 'Time' } },
-                                y: { title: { display: true, text: 'Usage (%)' }, min: 0, max: 100 },
-                            },
-                        },
-                    });
-                }
+                usageChart.update();
             } catch (error) {
-                console.error('Error fetching history:', error);
+                console.error('Error fetching data:', error);
             }
         }
 
-        // 初回データ取得と5秒ごとの更新
-        fetchHistory();
-        setInterval(fetchHistory, 5000); // 5秒ごとに更新
+        // 定期的にデータを取得して更新
+        setInterval(fetchData, 5000);
+        fetchData();
     </script>
 </body>
 </html>

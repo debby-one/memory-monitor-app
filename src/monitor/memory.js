@@ -25,4 +25,4 @@ function checkMemoryUsage() {
     });
 }
 
-setInterval(checkMemoryUsage, CHECK_INTERVAL);
+//setInterval(checkMemoryUsage, CHECK_INTERVAL);

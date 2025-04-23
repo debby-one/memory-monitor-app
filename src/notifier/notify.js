@@ -1,12 +1,12 @@
-const { Notification } = require('electron');
+const notifier = require('node-notifier');
 
 function sendNotification(message) {
-    const notification = new Notification({
-        title: 'Memory Monitor Alert',
-        body: message,
+    notifier.notify({
+        title: 'Memory Monitor',
+        message: message,
+        sound: true, // 通知音を有効にする
+        wait: false, // ユーザーの応答を待たない
     });
-
-    notification.show();
 }
 
 module.exports = { sendNotification };

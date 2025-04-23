@@ -28,4 +28,4 @@ function checkSwapUsage() {
     });
 }
 
-module.exports = { checkSwapUsage };
+//module.exports = { checkSwapUsage };

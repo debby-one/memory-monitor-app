@@ -19,6 +19,7 @@ const memoryHistory = [];
 const swapHistory = [];
 const MAX_HISTORY = 24 * 60; // 最大24時間分（1分ごとに記録）
 
+/**
 function getSwapUsage() {
     try {
         const output = execSync('free -b').toString(); // スワップ情報を取得
@@ -34,7 +35,9 @@ function getSwapUsage() {
     }
     return { total: 0, used: 0 };
 }
-
+*/
+// 自ホストの情報取得をコメントアウト
+/*
 function monitorResources() {
     const totalMemory = os.totalmem();
     const freeMemory = os.freemem();
@@ -52,10 +55,6 @@ function monitorResources() {
     memoryHistory.push({ timestamp: Date.now(), usagePercent: memoryUsagePercent });
     swapHistory.push({ timestamp: Date.now(), usagePercent: swapUsagePercent });
 
-    // デバッグ用ログ: 履歴の内容を確認
-    console.log('Memory History:', memoryHistory);
-    console.log('Swap History:', swapHistory);
-
     // 履歴の長さを制限
     if (memoryHistory.length > MAX_HISTORY) memoryHistory.shift();
     if (swapHistory.length > MAX_HISTORY) swapHistory.shift();
@@ -70,12 +69,14 @@ function monitorResources() {
 }
 
 setInterval(monitorResources, 5000); // 5秒ごとにリソースを監視
+*/
 
 app.get('/', (req, res) => {
     res.send('Memory and swap monitoring service is running.');
 });
 
-// エンドポイント: メモリとスワップの使用状況を取得
+// `/api/usage` エンドポイントをコメントアウト
+/*
 app.get('/api/usage', (req, res) => {
     const totalMemory = os.totalmem();
     const freeMemory = os.freemem();
@@ -98,8 +99,10 @@ app.get('/api/usage', (req, res) => {
         },
     });
 });
+*/
 
 // 履歴データを取得するエンドポイント
+/*
 app.get('/api/history', (req, res) => {
     res.json({
         memory: memoryHistory,
@@ -109,6 +112,46 @@ app.get('/api/history', (req, res) => {
             swap: SWAP_THRESHOLD,
         },
     });
+});
+*/
+
+const monitoredMachines = {}; // 監視対象マシンのデータを保持
+
+// エージェントからのデータを受け取るエンドポイント
+app.post('/api/report', express.json(), (req, res) => {
+    const { hostname, memoryUsage, swapUsage } = req.body;
+
+    if (!hostname || memoryUsage === undefined || swapUsage === undefined) {
+        return res.status(400).send('Invalid data');
+    }
+
+    if (!monitoredMachines[hostname]) {
+        monitoredMachines[hostname] = [];
+    }
+
+    monitoredMachines[hostname].push({
+        memoryUsage,
+        swapUsage,
+        timestamp: Date.now(),
+    });
+
+    // 履歴の長さを制限（例: 最大100件）
+    if (monitoredMachines[hostname].length > 100) {
+        monitoredMachines[hostname].shift();
+    }
+
+    console.log(`Received data from ${hostname}:`, { memoryUsage, swapUsage });
+    res.status(200).send('Data received');
+});
+
+// 監視対象マシンのデータを取得するエンドポイント
+app.get('/api/machines', (req, res) => {
+    const latestData = {};
+    Object.keys(monitoredMachines).forEach((hostname) => {
+        const history = monitoredMachines[hostname];
+        latestData[hostname] = history[history.length - 1]; // 最新データを取得
+    });
+    res.json(latestData);
 });
 
 app.listen(PORT, HOST, () => {
