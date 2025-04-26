@@ -4,6 +4,7 @@ const { checkSwapUsage } = require('./monitor/swap');
 const { sendNotification } = require('./notifier/notify');
 const os = require('os');
 const { execSync } = require('child_process');
+const { exec } = require('child_process');
 require('dotenv').config();
 
 const app = express();
@@ -117,11 +118,10 @@ app.get('/api/history', (req, res) => {
 
 const monitoredMachines = {}; // 監視対象マシンのデータを保持
 
-// エージェントからのデータを受け取るエンドポイント
 app.post('/api/report', express.json(), (req, res) => {
-    const { hostname, memoryUsage, swapUsage } = req.body;
+    const { hostname, memoryUsage, swapUsage, topProcesses } = req.body;
 
-    if (!hostname || memoryUsage === undefined || swapUsage === undefined) {
+    if (!hostname || memoryUsage === undefined || swapUsage === undefined || !topProcesses) {
         return res.status(400).send('Invalid data');
     }
 
@@ -132,6 +132,7 @@ app.post('/api/report', express.json(), (req, res) => {
     monitoredMachines[hostname].push({
         memoryUsage,
         swapUsage,
+        topProcesses: topProcesses.split('\\n'), // 改行で分割して配列に変換
         timestamp: Date.now(),
     });
 
@@ -140,11 +141,9 @@ app.post('/api/report', express.json(), (req, res) => {
         monitoredMachines[hostname].shift();
     }
 
-    console.log(`Received data from ${hostname}:`, { memoryUsage, swapUsage });
     res.status(200).send('Data received');
 });
 
-// 監視対象マシンのデータを取得するエンドポイント
 app.get('/api/machines', (req, res) => {
     const latestData = {};
     Object.keys(monitoredMachines).forEach((hostname) => {
@@ -154,6 +153,43 @@ app.get('/api/machines', (req, res) => {
     res.json(latestData);
 });
 
+// しきい値を取得するエンドポイント
+app.get('/api/thresholds', (req, res) => {
+    res.json({
+        memory: MEMORY_THRESHOLD,
+        swap: SWAP_THRESHOLD,
+    });
+});
+/*
+// リモートマシンの `top` コマンド結果を取得するエンドポイント
+app.get('/api/top', (req, res) => {
+    exec('top -b -o +%MEM | head -n 17', (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error executing top command: ${error.message}`);
+            return res.status(500).send('Error executing top command');
+        }
+        if (stderr) {
+            console.error(`stderr: ${stderr}`);
+            return res.status(500).send('Error executing top command');
+        }
+
+        // パース処理
+        const lines = stdout.split('\n').slice(7, 17); // メモリ使用率上位10行を取得
+        const data = lines.map(line => {
+            const columns = line.trim().split(/\s+/);
+            const command = columns.slice(11).join(' '); // コマンド部分
+            return {
+                pid: columns[0],
+                user: columns[1],
+                mem: columns[9], // %MEM
+                command: command.length > 100 ? command.slice(0, 100) + '...' : command, // コマンドを丸める
+            };
+        });
+
+        res.json(data);
+    });
+});
+*/
 app.listen(PORT, HOST, () => {
     console.log(`Server is running on http://${HOST}:${PORT}`);
 });

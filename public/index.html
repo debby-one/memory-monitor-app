@@ -6,21 +6,56 @@
     <title>Remote Machine Monitoring</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
         }
         canvas {
-            max-width: 800px;
+            max-width: 100%; /* 幅を親要素に合わせる */
+            width: 800px; /* 表と同じ幅に設定 */
             margin: 20px auto;
+            display: block;
+        }
+        table {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            width: 800px; /* グラフと同じ横幅に設定 */
+            margin-left: auto;
+            margin-right: auto; /* 中央揃え */
+            text-align: left;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f4f4f4;
         }
     </style>
 </head>
 <body>
     <h1>Remote Machine Monitoring</h1>
     <div>
-        <canvas id="usageChart" width="800" height="400"></canvas>
+        <canvas id="usageChart"></canvas>
+    </div>
+    <div>
+        <h2>Top Memory Usage Processes</h2>
+        <table id="topTable" border="1" style="width: 100%; text-align: left; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th>PID</th>
+                    <th>User</th>
+                    <th>%MEM</th>
+                    <th>Command</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- データはここに動的に挿入されます -->
+            </tbody>
+        </table>
     </div>
 
     <script>
@@ -55,6 +90,54 @@
                         display: true,
                         text: 'Memory and Swap Usage (%)',
                     },
+                    annotation: {
+                        annotations: {
+                            memoryThreshold: {
+                                type: 'line',
+                                yMin: 80, // メモリの閾値
+                                yMax: 80,
+                                borderColor: 'rgba(75, 192, 192, 0.8)',
+                                borderWidth: 2,
+                                borderDash: [5, 5], // 波線のスタイル
+                                label: {
+                                    content: 'Memory Threshold',
+                                    enabled: true,
+                                    position: 'end',
+                                },
+                            },
+                            swapThreshold: {
+                                type: 'line',
+                                yMin: 70, // スワップの閾値
+                                yMax: 70,
+                                borderColor: 'rgba(255, 99, 132, 0.8)',
+                                borderWidth: 2,
+                                borderDash: [5, 5], // 波線のスタイル
+                                label: {
+                                    content: 'Swap Threshold',
+                                    enabled: true,
+                                    position: 'end',
+                                },
+                            },
+                        },
+                    },
+                    legend: {
+                        labels: {
+                            generateLabels: function (chart) {
+                                const datasets = chart.data.datasets;
+                                return datasets.map((dataset, i) => {
+                                    const currentValue = dataset.data[dataset.data.length - 1] || 0; // 現在値を取得
+                                    return {
+                                        text: `${dataset.label}: ${currentValue.toFixed(2)}%`, // ラベルに現在値を追加
+                                        fillStyle: dataset.backgroundColor,
+                                        strokeStyle: dataset.borderColor,
+                                        lineWidth: 2,
+                                        hidden: !chart.isDatasetVisible(i),
+                                        index: i,
+                                    };
+                                });
+                            },
+                        },
+                    },
                 },
                 scales: {
                     y: {
@@ -84,11 +167,35 @@
                     const machine = machines[hostname];
                     memoryData.push(machine.memoryUsage);
                     swapData.push(machine.swapUsage);
+
+                    // `top` コマンドの結果を表示
+                    const tableBody = document.querySelector('#topTable tbody');
+                    tableBody.innerHTML = ''; // テーブルをクリア
+
+                    machine.topProcesses.forEach((process) => {
+                        const columns = process.trim().split(/\s+/);
+                        const command = columns.slice(11).join(' '); // コマンド部分
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${columns[0]}</td>
+                            <td>${columns[1]}</td>
+                            <td>${columns[9]}</td>
+                            <td>${command.length > 100 ? command.slice(0, 100) + '...' : command}</td> <!-- 最大文字数を150に変更 -->
+                        `;
+                        tableBody.appendChild(row);
+                    });
                 });
 
                 // グラフのデータセットを更新
                 usageChart.data.datasets[0].data.push(memoryData.reduce((a, b) => a + b, 0) / memoryData.length); // メモリ平均
                 usageChart.data.datasets[1].data.push(swapData.reduce((a, b) => a + b, 0) / swapData.length); // スワップ平均
+
+                // ラベルとデータセットの長さを制限
+                if (usageChart.data.labels.length > 2880) { // 48時間分（5秒ごと）
+                    usageChart.data.labels.shift(); // 最古のラベルを削除
+                    usageChart.data.datasets[0].data.shift(); // メモリデータの最古値を削除
+                    usageChart.data.datasets[1].data.shift(); // スワップデータの最古値を削除
+                }
 
                 // グラフを更新
                 usageChart.update();

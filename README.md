@@ -8,6 +8,8 @@
 - 使用率をリアルタイムでグラフに表示
 - メモリとスワップのしきい値を設定し、超過時に通知を送信
 - 最大48時間分のデータを保持し、時系列で表示
+- `top` コマンドの結果（メモリ使用率上位10プロセス）を表形式で表示
+- グラフと表の幅を統一
 
 ## 使用技術
 
@@ -68,11 +70,14 @@ HOSTNAME=$(hostname)
 while true; do
     MEMORY=$(free -b | grep Mem | awk '{print $3/$2 * 100.0}')
     SWAP=$(free -b | grep Swap | awk '{print $3/$2 * 100.0}')
-    
+    TOP_OUTPUT=$(top -b -o +%MEM | head -n 17 | tail -n 10) # メモリ使用率上位10行を取得
+
+    # JSON形式でデータを送信
     curl -X POST -H "Content-Type: application/json" -d '{
         "hostname": "'"$HOSTNAME"'",
         "memoryUsage": '"$MEMORY"',
-        "swapUsage": '"$SWAP"'
+        "swapUsage": '"$SWAP"',
+        "topProcesses": "'"$(echo "$TOP_OUTPUT" | sed ':a;N;$!ba;s/\n/\\n/g')"'"
     }' $SERVER_URL
 
     sleep 5
