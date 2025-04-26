@@ -1,13 +1,8 @@
 const express = require('express');
-const { checkMemoryUsage } = require('./monitor/memory');
-const { checkSwapUsage } = require('./monitor/swap');
-const { sendNotification } = require('./notifier/notify');
-const os = require('os');
-const { execSync } = require('child_process');
-const { exec } = require('child_process');
 require('dotenv').config();
 
 const app = express();
+const monitoredMachines = {}; // 監視対象マシンのデータを保持
 
 app.use(express.static('public'));
 
@@ -16,107 +11,9 @@ const SWAP_THRESHOLD = process.env.THRESHOLD_SWAP || 80; // Default to 80%
 const PORT = process.env.PORT || 8080; // Default to 3000
 const HOST = process.env.HOST || '0.0.0.0'; // Default to localhost
 
-const memoryHistory = [];
-const swapHistory = [];
-const MAX_HISTORY = 24 * 60; // 最大24時間分（1分ごとに記録）
-
-/**
-function getSwapUsage() {
-    try {
-        const output = execSync('free -b').toString(); // スワップ情報を取得
-        console.log('free command output:', output); // デバッグ用ログ
-        const lines = output.split('\n');
-        const swapLine = lines.find(line => line.startsWith('Swap:'));
-        if (swapLine) {
-            const [, total, used] = swapLine.trim().split(/\s+/).map(Number);
-            return { total, used };
-        }
-    } catch (error) {
-        console.error('Error fetching swap usage:', error);
-    }
-    return { total: 0, used: 0 };
-}
-*/
-// 自ホストの情報取得をコメントアウト
-/*
-function monitorResources() {
-    const totalMemory = os.totalmem();
-    const freeMemory = os.freemem();
-    const usedMemory = totalMemory - freeMemory;
-    const memoryUsagePercent = ((usedMemory / totalMemory) * 100).toFixed(2);
-
-    const { total: totalSwap, used: usedSwap } = getSwapUsage();
-    const swapUsagePercent = totalSwap > 0 ? ((usedSwap / totalSwap) * 100).toFixed(2) : 0;
-
-    // デバッグ用ログ
-    console.log('Memory Usage:', memoryUsagePercent);
-    console.log('Swap Usage:', swapUsagePercent);
-
-    // 履歴に追加
-    memoryHistory.push({ timestamp: Date.now(), usagePercent: memoryUsagePercent });
-    swapHistory.push({ timestamp: Date.now(), usagePercent: swapUsagePercent });
-
-    // 履歴の長さを制限
-    if (memoryHistory.length > MAX_HISTORY) memoryHistory.shift();
-    if (swapHistory.length > MAX_HISTORY) swapHistory.shift();
-
-    // しきい値を超えた場合に通知
-    if (memoryUsagePercent > MEMORY_THRESHOLD) {
-        sendNotification('Memory usage exceeded threshold!');
-    }
-    if (swapUsagePercent > SWAP_THRESHOLD) {
-        sendNotification('Swap usage exceeded threshold!');
-    }
-}
-
-setInterval(monitorResources, 5000); // 5秒ごとにリソースを監視
-*/
-
 app.get('/', (req, res) => {
     res.send('Memory and swap monitoring service is running.');
 });
-
-// `/api/usage` エンドポイントをコメントアウト
-/*
-app.get('/api/usage', (req, res) => {
-    const totalMemory = os.totalmem();
-    const freeMemory = os.freemem();
-    const usedMemory = totalMemory - freeMemory;
-    const memoryUsagePercent = ((usedMemory / totalMemory) * 100).toFixed(2);
-
-    const { total: totalSwap, used: usedSwap } = getSwapUsage();
-    const swapUsagePercent = totalSwap > 0 ? ((usedSwap / totalSwap) * 100).toFixed(2) : 0;
-
-    res.json({
-        memory: {
-            total: totalMemory,
-            used: usedMemory,
-            usagePercent: memoryUsagePercent,
-        },
-        swap: {
-            total: totalSwap,
-            used: usedSwap,
-            usagePercent: swapUsagePercent,
-        },
-    });
-});
-*/
-
-// 履歴データを取得するエンドポイント
-/*
-app.get('/api/history', (req, res) => {
-    res.json({
-        memory: memoryHistory,
-        swap: swapHistory,
-        thresholds: {
-            memory: MEMORY_THRESHOLD,
-            swap: SWAP_THRESHOLD,
-        },
-    });
-});
-*/
-
-const monitoredMachines = {}; // 監視対象マシンのデータを保持
 
 app.post('/api/report', express.json(), (req, res) => {
     const { hostname, memoryUsage, swapUsage, topProcesses } = req.body;
@@ -160,36 +57,7 @@ app.get('/api/thresholds', (req, res) => {
         swap: SWAP_THRESHOLD,
     });
 });
-/*
-// リモートマシンの `top` コマンド結果を取得するエンドポイント
-app.get('/api/top', (req, res) => {
-    exec('top -b -o +%MEM | head -n 17', (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error executing top command: ${error.message}`);
-            return res.status(500).send('Error executing top command');
-        }
-        if (stderr) {
-            console.error(`stderr: ${stderr}`);
-            return res.status(500).send('Error executing top command');
-        }
 
-        // パース処理
-        const lines = stdout.split('\n').slice(7, 17); // メモリ使用率上位10行を取得
-        const data = lines.map(line => {
-            const columns = line.trim().split(/\s+/);
-            const command = columns.slice(11).join(' '); // コマンド部分
-            return {
-                pid: columns[0],
-                user: columns[1],
-                mem: columns[9], // %MEM
-                command: command.length > 100 ? command.slice(0, 100) + '...' : command, // コマンドを丸める
-            };
-        });
-
-        res.json(data);
-    });
-});
-*/
 app.listen(PORT, HOST, () => {
     console.log(`Server is running on http://${HOST}:${PORT}`);
 });
